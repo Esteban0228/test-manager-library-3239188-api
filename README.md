@@ -42,3 +42,13 @@ docker compose -f docker-compose.dev.yml exec api php artisan test
 ## Estado por tarea
 
 T-01 a T-11 y T-14 a T-18 implementadas en esta base; la evidencia está en `tests/` y en los comandos de arriba. T-19 a T-23 viven en los demás repos o quedan pendientes.
+
+## Traducción del spec (T-01 a T-18)
+- Capas: app/Domain (reglas puras), app/Services (casos de uso), app/Http (controladores y middleware), app/Exceptions (error único code/message/details).
+- Último ejemplar: UPDATE atómico de available_copies dentro de una transacción; si no actualiza filas responde 409 BOOK_NOT_AVAILABLE.
+- Tope de 3 libros: se bloquea la fila del socio con lockForUpdate.
+- El estado del préstamo se calcula, nunca se guarda.
+## Supuestos
+- Token ausente o inválido responde 401 UNAUTHENTICATED; un error inesperado responde 500 INTERNAL_ERROR.
+- GET /categories devuelve un arreglo simple.
+- Probado a mano: login, libro, socio, préstamo 201, 409 sin ejemplares, devolución por ítem y reporte.
