@@ -1,50 +1,44 @@
-# test-manager-library-3239188-api
+# Manager Library · api (Laravel)
 
-> **Prueba técnica · Ficha ADSO 3239188**
-> Horario: **jueves 5 de noviembre de 2026, de 7:00 p. m. a 11:00 p. m.** (hora Colombia). Entrega a las **11:00 p. m.**
+Backend de la prueba SDD, ficha ADSO 3239188. Implementa el spec de `test-manager-library-3239188-docs` (`spec-python/`) en PHP + Laravel.
+El negocio y el contrato HTTP se respetan; la tecnología se traduce.
 
-Este repositorio es el **backend** de *Manager Library*, en **PHP con Laravel**. **Empieza vacío a propósito**: se construye en el fork de cada aprendiz.
+## Arranque
 
-## Instrucciones
+```powershell
+copy .env.example .env      # luego define JWT_SECRET (32+ caracteres) y ADMIN_PASSWORD
+docker compose -f docker-compose.dev.yml up --build
+```
 
-Cada aprendiz debe **crear el fork** de los seis repositorios del proyecto y **resolver el proyecto
-con el spec planteado**.
+Al arrancar: instala dependencias, corre las migraciones (la base empieza vacía), crea el admin desde el entorno y sirve en `http://localhost:8000/api/v1`.
 
-1. Hacer fork, a su cuenta de GitHub, de cada repositorio de la tabla del final.
-2. Leer el spec en [`test-manager-library-3239188-docs`](https://github.com/code-sena/test-manager-library-3239188-docs).
-   Se entrega en dos versiones: `spec-python/` y `spec-.net/`.
-3. Desarrollar en los forks.
+```powershell
+curl http://localhost:8000/api/v1/health
+docker compose -f docker-compose.dev.yml exec api php artisan test
+```
 
-## El reto se desarrolla con React y PHP (Laravel)
+## De Python a Laravel (decisiones de traducción)
 
-El spec está escrito para Python y para .NET, pero el reto **no** se hace en esos lenguajes:
-
-| Capa | Tecnología del reto |
+| Spec (Python) | Aquí (Laravel) |
 |---|---|
-| Frontend | React |
-| Backend | PHP con Laravel |
+| FastAPI | Rutas y controladores de Laravel; `bootstrap/app.php` fija el prefijo `/api/v1` |
+| SQLAlchemy + Alembic | Migraciones en SQL explícito: el esquema `library` sale de `data-model.md`, sin `DEFAULT` |
+| Dominio puro (art. I) | `app/Domain`: `LoanStatus`, `Isbn`, `LoanRules`, solo PHP sin framework |
+| Servicios de aplicación (SRP) | `app/Services`: `LoanService`, `BookService`, `MemberService`, `ReportService`, `AuthService` |
+| Error único (RNF-4) | `ApiException` + `ErrorResponder`, único lugar que arma `{code, message, details}` |
+| JWT HS256, 8 h | `firebase/php-jwt` tras `JwtService`; middleware `jwt` y `role` |
+| Argon2id | `HASH_DRIVER=argon2id` |
+| Testigo de versión (ADR-002) | `UPDATE … SET available_copies = available_copies - 1 WHERE available_copies > 0` dentro de la transacción; 0 filas afectadas → `409 BOOK_NOT_AVAILABLE`. La última barrera sigue siendo `ck_book_available_range` |
+| Reporte (ADR-004) | Una consulta agregada sobre `loan_item.book_title` y `category_name` congelados |
 
-Lo que el spec define sobre el negocio —historias, criterios de aceptación, reglas, contrato de la
-API, modelo de datos— se respeta. Lo que define sobre la tecnología se traduce a React y Laravel.
+## Supuestos donde el spec calla
 
-## La prueba no consiste en escribir el código
+- Token ausente, inválido o vencido: `401` con `code: UNAUTHENTICATED` (el contrato solo nombra `INVALID_CREDENTIALS`).
+- Error inesperado: `500` con `code: INTERNAL_ERROR`, sin trazas ni SQL.
+- `GET /categories` devuelve un arreglo simple, ordenado por nombre.
+- Orden de validación al prestar: duplicados (422) → socio (404) → vencidos (409) → tope de 3 (422) → libros (404) → ejemplares (409).
+- `days_late` son días completos de retraso.
 
-El propósito principal es ver la **capacidad de desempeño con SDD** (*Spec-Driven Development*,
-desarrollo guiado por especificación): cómo se lee, se interpreta y se aplica una especificación
-para llevarla a un stack distinto. El código es el medio, no el fin.
+## Estado por tarea
 
-## Entrega
-
-Cuenta lo que quede **subido a los forks antes de las 11:00 p. m.** Lo que llegue después no se revisa.
-No hay prórroga: suban avances parciales con commits pequeños durante la prueba.
-
-## Los seis repositorios
-
-| Repositorio | Qué va ahí |
-|---|---|
-| [`test-manager-library-3239188-docs`](https://github.com/code-sena/test-manager-library-3239188-docs) | El spec: `spec-python/` y `spec-.net/` |
-| [`test-manager-library-3239188-api`](https://github.com/code-sena/test-manager-library-3239188-api) | Backend en PHP (Laravel) |
-| [`test-manager-library-3239188-app`](https://github.com/code-sena/test-manager-library-3239188-app) | Frontend en React |
-| [`test-manager-library-3239188-page`](https://github.com/code-sena/test-manager-library-3239188-page) | Sitio público estático de presentación |
-| [`test-manager-library-3239188-infra`](https://github.com/code-sena/test-manager-library-3239188-infra) | Contenedores, red, volúmenes y motor de base de datos vacío |
-| [`test-manager-library-3239188-tool`](https://github.com/code-sena/test-manager-library-3239188-tool) | Utilidades: sembrador de datos de demostración |
+T-01 a T-11 y T-14 a T-18 implementadas en esta base; la evidencia está en `tests/` y en los comandos de arriba. T-19 a T-23 viven en los demás repos o quedan pendientes.

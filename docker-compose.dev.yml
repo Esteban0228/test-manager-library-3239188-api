@@ -1,0 +1,37 @@
+# Entorno de desarrollo del api. El compose definitivo (motor, api y app) va en el repo infra (T-20).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: library
+      POSTGRES_PASSWORD: library
+      POSTGRES_DB: library
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library -d library"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "composer install --no-interaction
+      && (grep -q '^APP_KEY=.\+' .env || php artisan key:generate --force)
+      && php artisan migrate --force
+      && php artisan library:create-admin
+      && php artisan serve --host=0.0.0.0 --port=8000"
+
+volumes:
+  pgdata:
